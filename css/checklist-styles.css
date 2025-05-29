@@ -1,0 +1,32 @@
+.card-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.emergency-card, .safety-card, .checklist-card {
+    flex: 1 1 300px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background-color: #f9f9f9;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-top: 4px solid #4CAF50;
+}
+
+.emergency-card h3, .safety-card h3, .checklist-card h3 {
+    color: #2E7D32;
+    margin-top: 0;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+}
+
+.checklist-footer {
+    text-align: center;
+    font-weight: bold;
+    margin-top: 20px;
+    color: #2E7D32;
+}
