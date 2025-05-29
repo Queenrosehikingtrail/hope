@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4CAF50">
+    <title>Queen Rose Hiking Trail App</title>
+    <link rel="stylesheet" href="css/vendor/leaflet.css"/>
+    <!-- Add Litepicker CSS -->
+    <link rel="stylesheet" href="css/vendor/litepicker.min.css"/>
+    <link rel="stylesheet" href="css/vendor/splide.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/first-aid.css">
+    <link rel="stylesheet" href="css/map_layer_styles.css">
+    <link rel="manifest" href="manifest.json">
+    <!-- Add icons for PWA -->
+    <link rel="apple-touch-icon" href="assets/icons/icon-192x192.png">
+    <!-- Add more icons as needed -->
+    <style>
+        /* Add style for the debug log output */
+        #debug-log-output {
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 300px;
+            overflow-y: scroll;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 0.8em;
+        }
+        .log-error { color: red; font-weight: bold; }
+        .log-warn { color: orange; }
+        .log-info { color: blue; }
+    </style>
+</head>
+<body>
+    <header>
+        <!-- Add Logo and Slogan -->
+        <div class="header-left-content">
+            <div class="logo-container">
+                <img src="assets/queens_river_logo.png" alt="Queens River Adventure Camp Logo" id="app-logo">
+                <div class="slogan-text">
+                    <span class="slogan-line1">Your companion for adventures on</span>
+                    <span class="slogan-line2">Queen Rose Hiking Trail</span>
+                </div>
+            </div>
+        </div>
+        <button id="hamburger-menu" aria-label="Open navigation menu">&#9776;</button>
+        <nav id="slide-out-menu">
+            <button data-section="map">Map</button>
+            <button data-section="trails">Trails</button>
+            <button data-section="accommodation">Accommodation</button>
+            <button data-section="booking">Booking</button>
+            <button data-section="weather">Weather</button>
+            <button data-section="kml-library">KML Library</button>
+            <button data-section="my-kmls">KML Upload</button> <!-- New Button -->
+            <button data-section="my-tracks">My Tracks</button>
+            <button data-section="my-waypoints">My Waypoints</button>
+            <button data-section="essentials-checklist">Essentials Checklist</button>
+            <button data-section="first-aid-guide">First Aid Guide</button>
+            <button data-section="emergency-contacts">Emergency Contacts</button>
+            <button data-section="safety-information">Safety Information</button>
+            <button data-section="about-queens">About Queens</button>
+            <button data-section="directions">Directions</button>
+        </nav>
+    </header>
+
+    <main id="app-content">
+        <section id="map-section" class="app-section active">
+            <h2>Trail Map & GPS</h2>
+            <div class="controls">
+                <label for="trail-select">Select Trail:</label>
+                <select id="trail-select">
+                    <option value="none">-- No Trail Selected --</option>
+                    <!-- Options will be populated by JS -->
+                </select>
+                <button id="track-location-btn">Track My Location</button>
+                <button id="start-recording-btn">Start Recording</button> <!-- GPS Tracking -->
+                <button id="add-waypoint-btn-ui" title="Add Waypoint at Current Location" style="padding: 5px;"><img src="assets/hiker_waypoint_icon.png" alt="Add Waypoint" style="width:18px; height:18px; vertical-align: middle;"> Waypoint</button>
+                <button id="pause-recording-btn" style="display: none;">Pause Recording</button> <!-- GPS Tracking -->
+                <button id="resume-recording-btn" style="display: none;">Resume Recording</button> <!-- GPS Tracking -->
+                <button id="stop-recording-btn" style="display: none;">Stop Recording</button> <!-- GPS Tracking -->
+                <span id="recording-status" style="margin-left: 10px;"></span> <!-- GPS Tracking -->
+            </div>
+            <div id="map"></div>
+        </section>
+
+        <section id="my-kmls-section" class="app-section">
+            <h2>My KML Files</h2>
+            <p>Upload KML files from your device to view them on the map, even offline.</p>
+            <input type="file" id="kml-file-input" accept=".kml" style="margin-bottom: 10px;">
+            <div id="kml-upload-status" style="margin-top: 10px; margin-bottom: 20px;"></div>
+            <h3>Stored KML Files:</h3>
+            <div id="my-kml-files-list-container">
+                <p>No KML files stored yet.</p>
+            </div>
+        </section>
+
+        <section id="my-tracks-section" class="app-section">
+            <h2>My Recorded Tracks</h2>
+            <div id="recorded-tracks-list-container">
+                <!-- List of recorded tracks will be populated by JS -->
+                <p>No tracks recorded yet.</p>
+            </div>
+        </section>
+
+        <section id="my-waypoints-section" class="app-section">
+            <h2>My Saved Waypoints</h2>
+            <div id="saved-waypoints-list-container">
+                <!-- List of saved waypoints will be populated by JS -->
+                <p>No waypoints saved yet.</p>
+            </div>
+        </section>
+
+        <section id="trails-section" class="app-section">
+            <h2>Trail Information</h2>
+            <div id="trail-details">
+                <!-- Trail details will be populated by JS -->
+            </div>
+        </section>
+
+        <section id="booking-section" class="app-section">
+            <h2>Booking Request</h2>
+            <p>Please fill out the form below to request a booking. We will contact you to confirm availability and details.</p>
+            <form id="booking-request-form">
+                <label for="booking-name">Name:</label>
+                <input type="text" id="booking-name" required><br>
+
+                <label for="booking-email">Email:</label>
+                <input type="email" id="booking-email" required><br>
+
+                <label for="booking-phone">Phone Number:</label>
+                <input type="tel" id="booking-phone" required><br>
+
+                <label for="booking-date-range">Requested Dates:</label>
+                <input type="text" id="booking-date-range" required><br>
+
+                <label for="booking-hikers">Number of Hikers:</label>
+                <input type="number" id="booking-hikers" min="1" value="1" required><br>
+
+                <label for="booking-trail">Select Trail(s):</label>
+                <select id="booking-trail" required>
+                    <option value="" disabled selected>-- Select a Trail --</option>
+                    <!-- Trail options will be populated by JS -->
+                </select><br>
+
+                <label for="booking-message">Additional Message:</label>
+                <textarea id="booking-message" rows="4"></textarea><br>
+
+                <button type="submit">Submit Booking Request</button>
+            </form>
+            <div id="booking-confirmation" style="display: none; margin-top: 15px; color: green; font-weight: bold;">
+                Thank you! Your booking request has been submitted. We will contact you shortly.
+            </div>
+             <hr>
+             <p>Alternatively, you can contact us directly:</p>
+             <p>Thea and Willy Field - Managing Couple: +27 64 880 2175 (WhatsApp only)</p>
+             <p>Pieter and Jackie Visser - Owner Couple: +27 72 604 9600 (WhatsApp only)</p>
+             <p>Email: caretaker@queensriver.co.za</p>
+        </section>
+
+        <section id="weather-section" class="app-section">
+            <h2>7-Day Weather Forecast</h2>
+            <h3>Nelshoogte State Forest</h3>
+            <button id="refresh-weather-btn" style="margin-bottom: 10px;">Refresh Weather</button>
+            <div id="weather-last-updated" style="font-size: 0.9em; margin-bottom: 15px;">Fetching weather data...</div>
+            <div id="hiking-recommendation" style="display: none; padding: 10px; background-color: #eef; border-left: 5px solid #3498db; margin-bottom: 15px;">
+            </div>
+            <div id="weather-forecast-container" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                <!-- Weather data will be populated by JS -->
+            </div>
+        </section>
+
+        <!-- Emergency Contacts Section -->
+        <section id="emergency-contacts-section" class="app-section">
+            <h2>Emergency Contacts</h2>
+            
+            <div class="first-aid-guide-section">
+                <div class="intro-text">
+                    <p>Important emergency contacts for the Queen Rose Hiking Trail area. Keep these numbers accessible during your hike.</p>
+                </div>
+                
+                <div class="collapsible-container">
+                    <button class="collapsible-button">Queen Rose Hiking Trail Contacts</button>
+                    <div class="collapsible-content">
+                        <p><strong>Caretaker (Willy / Thea):</strong> 064 880 2175</p>
+                        <p><strong>Owners (Pieter / Jackie):</strong> 072 604 9600</p>
+                        <p class="emergency-note">Note: Cellphone signal may be limited on parts of the trail. Use these numbers when in range or in conjunction with other emergency services if they need local information.</p>
+                    </div>
+                </div>
+                
+                <div class="collapsible-container">
+                    <button class="collapsible-button">General Emergency Services (South Africa)</button>
+                    <div class="collapsible-content">
+                        <p><strong>National Emergency Number (from a mobile phone):</strong> 112</p>
+                        <p><strong>National Ambulance (Public):</strong> 10177 or 1022</p>
+                    </div>
+                </div>
+                
+                <div class="collapsible-container">
+                    <button class="collapsible-button">Ambulance Services (Barberton & Nelspruit Area)</button>
+                    <div class="collapsible-content">
+                        <p><strong>ER24 (Private):</strong> 084 124</p>
+                        <p><strong>Netcare 911 (Private):</strong> 082 911</p>
+                        <p><strong>Hi-Tech Nelspruit (Mbombela/Nelspruit Area):</strong> 082 0456 910</p>
+                    </div>
+                </div>
+                
+                <div class="collapsible-container">
+                    <button class="collapsible-button">Hospitals (Medical Emergencies)</button>
+                    <div class="collapsible-content">
+                        <p><strong>Barberton Hospital:</strong> 013 712 3011 (State Hospital)</p>
+                        <p><strong>Rob Ferreira Hospital:</strong> 013 741 6100 (State Hospital)</p>
+                        <p><strong>Mediclinic Nelspruit (Mbombela):</strong> 013 759 0500 (General), 013 759 0645 (Emergency)</p>
+                        <p><strong>Busamed Lowveld Private Hospital (Mbombela):</strong> 013 752 7576 (General & 24 Hour Emergency)</p>
+                        <p class="emergency-note">Note: Mediclinic and Busamed are private hospitals. Ensure hikers have necessary medical aid details if using these.</p>
+                    </div>
+                </div>
+                
+                <div class="collapsible-container">
+                    <button class="collapsible-button">Snakebite and Poison Information</button>
+                    <div class="collapsible-content">
+                        <p><strong>Poison Information Helpline (24 hours, National):</strong> 0861 555 777</p>
+                        <p>This number is crucial for advice on bites, stings, and other poisonings. They can provide guidance to hikers or medical personnel.</p>
+                        <p><strong>African Snakebite Institute (Expert Advice):</strong> 082 494 2039 (Johan Marais)</p>
+                        <p class="emergency-note">This is a valuable resource for identifying snakes and getting specific treatment advice, but the primary contact for a medical emergency should be an ambulance or hospital.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Safety Information Section -->
+        <section id="safety-information-section" class="app-section">
+            <h2>Safety Information</h2>
+            <div class="emergency-container">
+                <div class="emergency-card">
+                    <h3>General Safety Guidelines</h3>
+                    <p>This guide provides essential information to help you stay safe while hiking the Queen Rose Trail. Please familiarize yourself with this information before starting your hike.</p>
+                </div>
+                
+                <div class="emergency-card">
+                    <h3>Wildlife Encounters</h3>
+                    <p>Encountering wildlife is a part of the hiking experience. By taking precautions and knowing how to react, you can minimize risks.</p>
+                    
+                    <p><strong>General Safety Around Wildlife:</strong></p>
+                    <p>Always maintain a respectful distance from all animals.</p>
+                    <p>Never feed wildlife. This can make them dependent on humans and may lead to aggressive behavior.</p>
+                    <p>Do not try to touch or provoke any animal.</p>
+                    <p>Be aware of your surroundings and listen for sounds that might indicate animals are nearby.</p>
+                    <p>Store all food securely to prevent attracting animals.</p>
+                    
+                    <p><strong>Snakes:</strong></p>
+                    <p>Mpumalanga is home to various snake species. While most are not dangerous, it's important to be cautious.</p>
+                    
+                    <p><strong>Prevention:</strong></p>
+                    <p>Stay strictly on marked trails.</p>
+                    <p>Wear sturdy closed hiking boots and long pants.</p>
+                    <p>Watch carefully where you step and where you place your hands, especially when moving over rocks or logs.</p>
+                    <p>Avoid walking through thick grass or dense undergrowth whenever possible.</p>
+                    <p>If staying overnight in tents, keep them zipped up and check your shoes and gear before use.</p>
+                    
+                    <p><strong>During an Encounter:</strong></p>
+                    <p>If you see a snake, stop and remain calm. Snakes usually only bite if they feel threatened or are surprised.</p>
+                    <p>Slowly back away from the snake, giving it plenty of space to move away. Snakes do not chase people.</p>
+                    <p>Do not attempt to handle, corner, or kill the snake.</p>
+                    
+                    <p><strong>If Bitten:</strong></p>
+                    <p>Stay calm. Panicking can make symptoms worse.</p>
+                    <p>Seek immediate medical attention. Contact the emergency number for the trail or local authorities without delay.</p>
+                    <p>Keep the bitten limb as still as possible, ideally below the level of the heart.</p>
+                    <p>Remove any tight jewelry or clothing near the bite area before swelling begins.</p>
+                    <p>Do NOT cut the wound or attempt to suck out the venom.</p>
+                    <p>Do NOT apply a tourniquet.</p>
+                    <p>Do NOT apply ice or heat to the bite.</p>
+                    <p>Try to remember the appearance of the snake (size, color, pattern, head shape) to help with identification and treatment.</p>
+                </div>
+                
+                <div class="emergency-card">
+                    <h3>Weather Safety</h3>
+                    <p><strong>Lightning:</strong></p>
+                    <p>Mpumalanga experiences frequent thunderstorms, especially in summer.</p>
+                    <p>If caught in a thunderstorm:</p>
+                    <p>Avoid open areas, hilltops, and isolated tall trees.</p>
+                    <p>Stay away from water bodies and metal objects.</p>
+                    <p>If in a group, spread out to reduce multiple casualties.</p>
+                    <p>The "lightning position" is a last resort: squat on the balls of your feet with your feet together, head tucked, and ears covered. Only touch the ground with your feet.</p>
+                    
+                    <p><strong>Extreme Heat:</strong></p>
+                    <p>Hike during cooler parts of the day (early morning, late afternoon).</p>
+                    <p>Wear light-colored, loose-fitting clothing and a wide-brimmed hat.</p>
+                    <p>Apply sunscreen regularly (SPF 30+).</p>
+                    <p>Carry and drink plenty of water (minimum 2-3 liters per person for a day hike).</p>
+                    <p>Know the signs of heat exhaustion and heat stroke (see First Aid Guide).</p>
+                    
+                    <p><strong>Rain and Flooding:</strong></p>
+                    <p>Check weather forecasts before starting your hike.</p>
+                    <p>Be aware that streams can rise rapidly after rain, even if it's not raining where you are.</p>
+                    <p>Never attempt to cross flooded areas.</p>
+                    <p>Have waterproof gear available.</p>
+                </div>
+                
+                <div class="emergency-card">
+                    <h3>Trail Safety</h3>
+                    <p><strong>Before You Hike:</strong></p>
+                    <p>Always inform someone of your hiking plans, including your route and expected return time.</p>
+                    <p>Check the weather forecast.</p>
+                    <p>Ensure your phone is fully charged.</p>
+                    <p>Carry a basic first aid kit.</p>
+                    <p>Bring a map and compass (and know how to use them).</p>
+                    <p>Pack essential items (see Essentials Checklist).</p>
+                    
+                    <p><strong>During Your Hike:</strong></p>
+                    <p>Stay on marked trails.</p>
+                    <p>Hike with a partner or group when possible.</p>
+                    <p>Maintain a sustainable pace.</p>
+                    <p>Take regular breaks.</p>
+                    <p>Be especially careful on steep or slippery sections.</p>
+                    <p>Watch for trail markers and be aware of your location.</p>
+                    
+                    <p><strong>If You Get Lost:</strong></p>
+                    <p>Stop and stay calm.</p>
+                    <p>Use the S.T.O.P. principle: Stop, Think, Observe, Plan.</p>
+                    <p>If you have phone signal, call for help.</p>
+                    <p>If no signal, use a whistle (three short blasts is the international distress signal).</p>
+                    <p>If it's getting dark, find shelter and wait for daylight.</p>
+                    <p>Conserve water and food.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- First Aid Guide Section -->
+        <section id="first-aid-guide-section" class="app-section">
+            <h2>First Aid Guide</h2>
+            
+            <div class="first-aid-guide-section">
+                <div class="intro-text">
+                    <p>This guide provides basic first aid information for common hiking emergencies. It is not a substitute for proper first aid training. In serious situations, seek professional medical help as soon as possible.</p>
+                </div>
+                
+                <div class="collapsible-container">
+                    <button class="collapsible-button">Cuts and Wounds</button>
+                    <div class="collapsible-content">
+                        <p><strong>Minor Cuts and Scrapes:</strong></p>
+                        <p>Clean the wound with clean water or antiseptic wipe.</p>
+                        <p>Apply gentle pressure with a clean cloth or bandage to stop bleeding.</p>
+                        <p>Apply antibiotic ointment if available.</p>
+                        <p>Cover with a sterile bandage.</p>
+                        
+                        <p><strong>Larger Wounds:</strong></p>
+                        <p>Apply direct pressure with a clean cloth or bandage to control bleeding.</p>
+                        <p>If blood soaks through, add another layer without removing the first.</p>
+                        <p>Once bleeding slows, clean the wound if possible.</p>
+                        <p>Cover with a sterile dressing.</p>
+                        <p>Seek medical attention for deep wounds, wounds that won't stop bleeding, or wounds with embedded objects.</p>
+                        
+                        <p><strong>When to Seek Immediate Medical Help:</strong></p>
+                        <p>Wounds that are deep or gaping</p>
+                        <p>Bleeding that cannot be controlled after 15 minutes of direct pressure</p>
+                        <p>Wounds with embedded foreign objects (do not remove)</p>
+                        <p>Wounds from rusty objects or animal bites</p>
+                    </div>
+                </div>
+                
+                <div class="collapsible-container">
+                    <button class="collapsible-button">Dehydration and Heat-Related Illnesses</button>
+                    <div class="collapsible-content">
+                        <p><strong>Dehydration:</strong></p>
+                        <p>Signs: Thirst, dry mouth, dark urine, fatigue, dizziness, headache</p>
+                        <p>Treatment: Move to a cool, shaded area. Drink water slowly but steadily. Add electrolytes if available.</p>
+                        <p>Prevention: Drink water regularly throughout your hike, even if not thirsty. Aim for at least 0.5-1 liter per hour in hot weather.</p>
+                        
+                        <p><strong>Heat Exhaustion:</strong></p>
+                        <p>Signs: Heavy sweating, cold/pale/clammy skin, fast/weak pulse, nausea, weakness, headache, fainting</p>
+                        <p>Treatment: Move to a cool place, loosen clothing, apply cool wet cloths to body, sip water. If vomiting occurs or symptoms worsen, seek medical attention.</p>
+                        
+                        <p><strong>Heat Stroke (Medical Emergency):</strong></p>
+                        <p>Signs: High body temperature (above 103°F), hot/red/dry skin, rapid strong pulse, confusion, possible unconsciousness</p>
+                        <p>Treatment: Call emergency services immediately. Move to a cooler place, use cold water or ice on neck, armpits, and groin. Do not give fluids if unconscious.</p>
+                    </div>
+                </div>
+                
+                <div class="collapsible-container">
+                    <button class="collapsible-button">Hypothermia</button>
+                    <div class="collapsible-content">
+                        <p><strong>Signs and Symptoms:</strong></p>
+                        <p>Shivering (early sign)</p>
+                        <p>Slurred speech or mumbling</p>
+                        <p>Slow, shallow breathing</p>
+                        <p>Weak pulse</p>
+                        <p>Clumsiness or lack of coordination</p>
+                        <p>Confusion or memory loss</p>
+                        <p>Drowsiness or very low energy</p>
+                        <p>In severe cases, shivering may stop and the person may lose consciousness</p>
+                        
+                        <p><strong>Treatment:</strong></p>
+                        <p>Move the person to a warm, dry area.</p>
+                        <p>Remove wet clothing and replace with dry clothing.</p>
+                        <p>Wrap the person in blankets, sleeping bags, or extra clothing. Focus on warming the center of the body first (chest, neck, head).</p>
+                        <p>If the person is conscious, provide warm, sweet, non-alcoholic drinks.</p>
+                        <p>Use body heat if necessary (lie next to the person inside a sleeping bag).</p>
+                        <p>For mild hypothermia, exercise can help generate body heat.</p>
+                        <p>For moderate to severe hypothermia, handle the person gently and seek medical attention immediately.</p>
+                        
+                        <p><strong>Prevention:</strong></p>
+                        <p>Dress in layers and stay dry.</p>
+                        <p>Always carry extra clothing, especially for unexpected weather changes.</p>
+                        <p>Be aware that hypothermia can occur even in mild temperatures (10-15°C) if wet or windy.</p>
+                    </div>
+                </div>
+                
+                <div class="collapsible-container">
+                    <button class="collapsible-button">Sprains and Fractures</button>
+                    <div class="collapsible-content">
+                        <p><strong>Sprains:</strong></p>
+                        <p>Signs: Pain, swelling, bruising, limited mobility of the joint</p>
+                        <p>Treatment: Remember RICE - Rest, Ice, Compression, Elevation</p>
+                        <p>Rest the injured area.</p>
+                        <p>Apply cold packs for 20 minutes every 1-2 hours (wrap ice in cloth, don't apply directly to skin).</p>
+                        <p>Compress with an elastic bandage.</p>
+                        <p>Elevate the injured area above heart level if possible.</p>
+                        <p>Over-the-counter pain relievers can help manage pain.</p>
+                        
+                        <p><strong>Fractures (Suspected):</strong></p>
+                        <p>Signs: Pain, swelling, deformity, inability to use the limb, grinding sensation, bruising</p>
+                        <p>Treatment:</p>
+                        <p>Immobilize the injury - do not try to realign the bone.</p>
+                        <p>For arm fractures, use a sling or splint.</p>
+                        <p>For leg fractures, splint the leg to prevent movement.</p>
+                        <p>Apply cold packs to reduce swelling (wrapped in cloth).</p>
+                        <p>Seek medical attention as soon as possible.</p>
+                        <p>For open fractures (bone piercing skin), cover the wound with a clean cloth and control bleeding. Do not push the bone back in.</p>
+                    </div>
+                </div>
+                
+                <div class="collapsible-container">
+                    <button class="collapsible-button">Bites and Stings</button>
+                    <div class="collapsible-content">
+                        <p><strong>Snake Bites:</strong></p>
+                        <p>Keep the victim calm and still. Restrict movement of the affected limb.</p>
+                        <p>Remove any constricting items (rings, watches, etc.) from the affected limb.</p>
+                        <p>Keep the bite site at or below heart level.</p>
+                        <p>Clean the bite gently with soap and water if available.</p>
+                        <p>Cover with a clean, dry dressing.</p>
+                        <p>Mark the edge of the swelling on the skin and note the time.</p>
+                        <p>Seek medical help immediately.</p>
+                        <p>Do NOT: Cut the wound, suck out venom, apply a tourniquet, apply ice, give the victim alcohol or medications, or attempt to catch the snake.</p>
+                        
+                        <p><strong>Insect Stings:</strong></p>
+                        <p>Remove the stinger if visible (scrape with a card, don't use tweezers).</p>
+                        <p>Clean the area with soap and water.</p>
+                        <p>Apply a cold pack to reduce pain and swelling.</p>
+                        <p>Apply hydrocortisone cream or calamine lotion to reduce itching.</p>
+                        <p>For severe reactions (difficulty breathing, swelling of face/throat, rapid pulse, dizziness), seek emergency medical help immediately.</p>
+                        
+                        <p><strong>Tick Bites:</strong></p>
+                        <p>Use fine-tipped tweezers to grasp the tick as close to the skin as possible.</p>
+                        <p>Pull upward with steady, even pressure. Don't twist or jerk.</p>
+                        <p>After removal, clean the bite area with soap and water or alcohol.</p>
+                        <p>Dispose of the live tick by submersing in alcohol, placing in a sealed container, or flushing down the toilet.</p>
+                        <p>Watch for signs of illness in the days following a tick bite (rash, fever, fatigue, muscle aches).</p>
+                    </div>
+                </div>
+                
+                <div class="collapsible-container">
+                    <button class="collapsible-button">CPR Basics</button>
+                    <div class="collapsible-content">
+                        <p><strong>Note:</strong> This is a basic overview. Proper CPR training is strongly recommended.</p>
+                        
+                        <p><strong>Check Responsiveness:</strong></p>
+                        <p>Tap the person and shout "Are you OK?"</p>
+                        
+                        <p><strong>If No Response:</strong></p>
+                        <p>Call for emergency help or ask someone else to.</p>
+                        <p>Check for breathing - look for chest movement, listen for breath sounds, feel for breath on your cheek.</p>
+                        
+                        <p><strong>If Not Breathing Normally:</strong></p>
+                        <p>Place the person on their back on a firm surface.</p>
+                        <p>Kneel beside the person's chest.</p>
+                        <p>Place the heel of one hand on the center of the chest (between the nipples).</p>
+                        <p>Place your other hand on top of the first.</p>
+                        <p>Keep your elbows straight and position your shoulders directly above your hands.</p>
+                        <p>Push hard and fast - compress the chest at least 2 inches deep at a rate of 100-120 compressions per minute.</p>
+                        <p>Allow the chest to completely recoil between compressions.</p>
+                        <p>Minimize interruptions in compressions.</p>
+                        
+                        <p><strong>Continue CPR:</strong></p>
+                        <p>Continue until emergency services arrive, the person shows signs of life, or you are too exhausted to continue.</p>
+                        
+                        <p><strong>If Trained in Rescue Breaths:</strong></p>
+                        <p>After 30 compressions, give 2 rescue breaths.</p>
+                        <p>Tilt the head back slightly and lift the chin.</p>
+                        <p>Pinch the nose shut and make a complete seal over the person's mouth with yours.</p>
+                        <p>Blow in for about 1 second to make the chest rise.</p>
+                        <p>Give a second rescue breath.</p>
+                        <p>Resume chest compressions immediately after the second breath.</p>
+                        <p>Continue the cycle of 30 compressions and 2 breaths.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- About Queens Section -->
+        <section id="about-queens-section" class="app-section">
+            <h2>About Queens River Adventure Camp</h2>
+            <div class="about-queens-content">
+                <img src="assets/about_queens_image.jpg" alt="Queens River Adventure Camp" class="about-image">
+                
+                <h3>Our Story</h3>
+                <p>Queens River Adventure Camp is nestled in the heart of the Nelshoogte State Forest in Mpumalanga, South Africa. Established in 2010 by the Visser family, our camp has grown from a small hiking stopover to a beloved destination for nature enthusiasts and adventure seekers.</p>
+                
+                <p>Named after the Queen Rose Hiking Trail that winds through our property, our camp offers a unique blend of wilderness experience and comfortable accommodation. The trail itself was named after the rare Queen Rose protea that blooms in the surrounding mountains.</p>
+                
+                <h3>Our Mission</h3>
+                <p>At Queens River Adventure Camp, we are committed to:</p>
+                <ul>
+                    <li>Providing a safe and memorable hiking experience in one of South Africa's most beautiful landscapes</li>
+                    <li>Preserving and protecting the natural environment through sustainable practices</li>
+                    <li>Educating visitors about local flora, fauna, and conservation efforts</li>
+                    <li>Supporting the local community through employment and partnerships</li>
+                </ul>
+                
+                <h3>The Environment</h3>
+                <p>The camp is situated in a biodiversity hotspot, home to numerous plant species found nowhere else in the world. The surrounding forest is part of the greater Barberton Mountainland, recognized for its geological significance and ancient rock formations dating back 3.5 billion years.</p>
+                
+                <p>The area is characterized by:</p>
+                <ul>
+                    <li>Indigenous forests with yellowwood and stinkwood trees</li>
+                    <li>Mountain fynbos vegetation including proteas and ericas</li>
+                    <li>Crystal-clear mountain streams and waterfalls</li>
+                    <li>Diverse wildlife including bushbuck, baboons, and over 200 bird species</li>
+                </ul>
+                
+                <h3>Our Team</h3>
+                <p>Queens River Adventure Camp is managed by Thea and Willy Field, who live on-site and ensure that every visitor's experience is memorable. The camp is owned by Pieter and Jackie Visser, who are passionate about conservation and outdoor adventure.</p>
+                
+                <p>Our team includes local guides who are knowledgeable about the area's history, geology, and ecology. Many of our staff members come from nearby communities and have been with us for years, contributing their invaluable local knowledge and skills.</p>
+                
+                <h3>Community Involvement</h3>
+                <p>We are proud to support the local community through:</p>
+                <ul>
+                    <li>Employment opportunities for local residents</li>
+                    <li>Sourcing supplies and services from local businesses</li>
+                    <li>Supporting educational initiatives about conservation and sustainable tourism</li>
+                    <li>Participating in local environmental clean-up and restoration projects</li>
+                </ul>
+                
+                <p>We believe that responsible tourism can make a positive impact on both the environment and the community, and we strive to embody these principles in everything we do at Queens River Adventure Camp.</p>
+            </div>
+        </section>
+
+        <!-- Directions Section -->
+        <section id="directions-section" class="app-section">
+            <h2>Directions to Queens River Adventure Camp</h2>
+            <div class="directions-content">
+                <h3>GPS Coordinates</h3>
+                <p>Latitude: -25.8352° S</p>
+                <p>Longitude: 30.8315° E</p>
+                
+                <h3>From Johannesburg/Pretoria</h3>
+                <ol>
+                    <li>Take the N4 highway towards Nelspruit/Mbombela.</li>
+                    <li>Continue on the N4 past Middleburg and Belfast.</li>
+                    <li>Take the R40 exit towards Barberton.</li>
+                    <li>Follow the R40 for approximately 45km.</li>
+                    <li>Turn right onto the R38 towards Badplaas/Carolina.</li>
+                    <li>After 15km, look for the Nelshoogte Forest sign on your left.</li>
+                    <li>Turn left onto the gravel road and follow it for 8km.</li>
+                    <li>Look for the Queens River Adventure Camp signage on your right.</li>
+                </ol>
+                <p>Total distance from Johannesburg: Approximately 330km (4-5 hours)</p>
+                
+                <h3>From Nelspruit/Mbombela</h3>
+                <ol>
+                    <li>Take the R40 south towards Barberton.</li>
+                    <li>Continue through Barberton and follow the R40 for approximately 20km.</li>
+                    <li>Turn right onto the R38 towards Badplaas/Carolina.</li>
+                    <li>After 15km, look for the Nelshoogte Forest sign on your left.</li>
+                    <li>Turn left onto the gravel road and follow it for 8km.</li>
+                    <li>Look for the Queens River Adventure Camp signage on your right.</li>
+                </ol>
+                <p>Total distance from Nelspruit: Approximately 65km (1-1.5 hours)</p>
+                
+                <h3>From Durban</h3>
+                <ol>
+                    <li>Take the N3 highway towards Johannesburg.</li>
+                    <li>At Villiers, take the R33 towards Standerton.</li>
+                    <li>Continue on the R33 through Standerton and Ermelo.</li>
+                    <li>From Ermelo, take the R39 towards Badplaas.</li>
+                    <li>At Badplaas, take the R38 towards Barberton.</li>
+                    <li>After approximately 30km, look for the Nelshoogte Forest sign on your right.</li>
+                    <li>Turn right onto the gravel road and follow it for 8km.</li>
+                    <li>Look for the Queens River Adventure Camp signage on your right.</li>
+                </ol>
+                <p>Total distance from Durban: Approximately 500km (6-7 hours)</p>
+                
+                <h3>Important Notes</h3>
+                <ul>
+                    <li>The last 8km is on a gravel road. While generally well-maintained, a vehicle with good ground clearance is recommended, especially during the rainy season (November to March).</li>
+                    <li>Mobile phone reception is limited in the forest area. Download these directions or save them offline before your journey.</li>
+                    <li>We recommend arriving during daylight hours as the forest roads can be challenging to navigate after dark.</li>
+                    <li>Fuel up at Barberton or Badplaas as there are no fuel stations near the camp.</li>
+                    <li>In case you get lost, call the camp at +27 64 880 2175 (when in mobile reception areas).</li>
+                </ul>
+                
+                <h3>Public Transportation</h3>
+                <p>If you're using public transportation:</p>
+                <ul>
+                    <li>Take a bus or minibus taxi to Barberton.</li>
+                    <li>From Barberton, arrange with us in advance for a pickup (additional charges apply).</li>
+                    <li>Alternatively, local taxis can be hired in Barberton to take you to the camp, but this should be arranged in advance.</li>
+                </ul>
+                
+                <p>Please contact us at least 48 hours before your arrival if you need assistance with transportation arrangements.</p>
+            </div>
+        </section>
+
+        <!-- Essentials Checklist Section -->
+        <section id="essentials-checklist-section" class="app-section">
+            <h2>Hiking Essentials Checklist</h2>
+            <div id="checklist-container">
+                <!-- Checklist will be populated by JS -->
+            </div>
+        </section>
+
+        <!-- Accommodation Section -->
+        <section id="accommodation-section" class="app-section">
+            <h2>Accommodation Options</h2>
+            <div class="accommodation-container">
+                <div class="accommodation-type">
+                    <h3>Main Lodge</h3>
+                    <div class="accommodation-details">
+                        <p><strong>Description:</strong> Our main lodge offers comfortable rooms with beautiful views of the surrounding forest. Perfect for those who want to enjoy nature without sacrificing comfort.</p>
+                        
+                        <div class="accommodation-gallery">
+                            <!-- Images will be populated by JS -->
+                        </div>
+                        
+                        <p><strong>Features:</strong></p>
+                        <ul>
+                            <li>En-suite bathrooms with hot showers</li>
+                            <li>Comfortable beds with quality linens</li>
+                            <li>Private veranda with forest views</li>
+                            <li>Solar-powered electricity</li>
+                            <li>Communal lounge with fireplace</li>
+                            <li>Fully equipped shared kitchen</li>
+                            <li>Wi-Fi in common areas (when generator is running)</li>
+                        </ul>
+                        
+                        <p><strong>Rates:</strong></p>
+                        <ul>
+                            <li>Double room: R850 per night</li>
+                            <li>Family room (sleeps 4): R1,400 per night</li>
+                            <li>Breakfast included</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="accommodation-type">
+                    <h3>Forest Cabins</h3>
+                    <div class="accommodation-details">
+                        <p><strong>Description:</strong> Nestled among the trees, our rustic cabins offer a more immersive forest experience while still providing essential comforts.</p>
+                        
+                        <div class="accommodation-gallery">
+                            <!-- Images will be populated by JS -->
+                        </div>
+                        
+                        <p><strong>Features:</strong></p>
+                        <ul>
+                            <li>Self-catering facilities with basic kitchenette</li>
+                            <li>Private bathroom with shower</li>
+                            <li>Covered porch with seating area</li>
+                            <li>Solar lighting</li>
+                            <li>Braai (barbecue) facilities</li>
+                            <li>Comfortable beds with linens provided</li>
+                            <li>Insulated for year-round comfort</li>
+                        </ul>
+                        
+                        <p><strong>Rates:</strong></p>
+                        <ul>
+                            <li>2-person cabin: R650 per night</li>
+                            <li>4-person cabin: R950 per night</li>
+                            <li>Self-catering (no meals included)</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="accommodation-type">
+                    <h3>Trail Huts</h3>
+                    <div class="accommodation-details">
+                        <p><strong>Description:</strong> Basic accommodation options located along the hiking trail. These simple huts provide shelter for hikers doing multi-day treks on the Queen Rose Trail.</p>
+                        
+                        <div class="accommodation-gallery">
+                            <!-- Images will be populated by JS -->
+                        </div>
+                        
+                        <p><strong>Features:</strong></p>
+                        <ul>
+                            <li>Sleeps 8-12 people (bunk beds)</li>
+                            <li>Communal cooking area with basic utensils</li>
+                            <li>Outdoor ablution facilities with cold water</li>
+                            <li>Rainwater collection system</li>
+                            <li>Solar-powered lighting (limited hours)</li>
+                            <li>Mattresses provided (bring your own sleeping bag)</li>
+                            <li>Firewood available for purchase</li>
+                        </ul>
+                        
+                        <p><strong>Rates:</strong></p>
+                        <ul>
+                            <li>R200 per person per night</li>
+                            <li>Booking essential as part of trail packages</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="accommodation-type">
+                    <h3>Camping Sites</h3>
+                    <div class="accommodation-details">
+                        <p><strong>Description:</strong> Designated camping areas for those who prefer to bring their own tents. Sites are available near the main camp area with access to shared facilities.</p>
+                        
+                        <p><strong>Features:</strong></p>
+                        <ul>
+                            <li>Level tent sites with shade options</li>
+                            <li>Communal ablution facilities with hot showers</li>
+                            <li>Shared kitchen area with washing-up facilities</li>
+                            <li>Braai (barbecue) stands at each site</li>
+                            <li>Access to communal refrigeration</li>
+                            <li>Drinking water available</li>
+                        </ul>
+                        
+                        <p><strong>Rates:</strong></p>
+                        <ul>
+                            <li>R150 per person per night</li>
+                            <li>Children under 12: R75 per night</li>
+                            <li>Maximum 6 people per site</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="booking-info">
+                    <h3>Booking Information</h3>
+                    <p>To check availability and make reservations, please use the Booking Request form in this app or contact us directly:</p>
+                    <p>Email: caretaker@queensriver.co.za</p>
+                    <p>Phone: +27 64 880 2175 (WhatsApp only)</p>
+                    
+                    <p><strong>Booking Terms:</strong></p>
+                    <ul>
+                        <li>50% deposit required to confirm bookings</li>
+                        <li>Balance payable 14 days before arrival</li>
+                        <li>Cancellation policy: 100% refund if cancelled 30+ days before arrival, 50% refund if cancelled 14-29 days before arrival, no refund if cancelled less than 14 days before arrival</li>
+                        <li>Check-in: 14:00 - 18:00</li>
+                        <li>Check-out: By 10:00</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- KML Library Section -->
+        <section id="kml-library-section" class="app-section">
+            <h2>KML Library</h2>
+            <p>Select a KML file to view on the map:</p>
+            <div id="kml-library-container">
+                <!-- KML library will be populated by JS -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Add JavaScript -->
+    <script src="js/vendor/leaflet.js"></script>
+    <script src="js/vendor/leaflet.offline.js"></script>
+    <script src="js/vendor/L.KML.js"></script>
+    <script src="js/vendor/litepicker.min.js"></script>
+    <script src="js/vendor/splide.min.js"></script>
+    <script src="js/vendor/dexie.min.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/kml_management.js"></script>
+    <script src="js/gps_tracking.js"></script>
+    <script src="js/weather.js"></script>
+    <script src="js/map_layer_toggle.js"></script>
+    <script src="kml_path_fix.js"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(function(registration) {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    }, function(err) {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
